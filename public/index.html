@@ -96,7 +96,11 @@
       <div class="p-3.5 glass-dark flex items-center justify-between border-b border-emerald-500/20">
         <div id="chat-header" class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-full bg-emerald-900 border border-emerald-400 flex items-center justify-center">🔍</div>
-          <div><h3 class="font-bold text-sm">Not Connected</h3><p class="text-xs text-emerald-300/70">Click "Next / Skip" to start</p></div>
+          <div>
+            <h3 class="font-bold text-sm">Not Connected</h3>
+            <p id="chat-subtext" class="text-xs text-emerald-300/70">Click "Next / Skip" to start</p>
+            <span id="typing-indicator" class="text-[10px] text-emerald-400 italic hidden">Stranger is typing...</span>
+          </div>
         </div>
         <div class="flex items-center gap-2">
           <button id="audio-call-btn" onclick="startAudioCall()" class="hidden px-2.5 py-1.5 rounded-xl bg-emerald-600/40 border border-emerald-400 text-emerald-300 text-xs cursor-pointer" title="Audio Call"><i class="fa-solid fa-phone"></i></button>
@@ -146,7 +150,7 @@
           <i class="fa-solid fa-image"></i>
           <input id="media-input" type="file" accept="image/*" disabled onchange="sendImage(event)" class="hidden">
         </label>
-        <input id="msg-input" type="text" onkeydown="if(event.key==='Enter') sendMsg()" placeholder="Type a message..." class="flex-1 px-4 py-2.5 rounded-xl glass text-sm text-white focus:outline-none">
+        <input id="msg-input" type="text" oninput="handleTyping()" onkeydown="if(event.key==='Enter') sendMsg()" placeholder="Type a message..." class="flex-1 px-4 py-2.5 rounded-xl glass text-sm text-white focus:outline-none">
         <button onclick="sendMsg()" class="px-5 py-2.5 rounded-xl neon-btn font-bold text-sm cursor-pointer"><i class="fa-solid fa-paper-plane"></i></button>
       </div>
 
@@ -206,29 +210,23 @@
     </div>
   </div>
 
-  <!-- SCREEN 4: OWNER CONSOLE -->
-  <div id="screen-admin" class="hidden w-full max-w-4xl glass rounded-3xl p-6 border-2 border-emerald-400">
-    <div class="flex justify-between items-center border-b border-emerald-500/30 pb-3 mb-4">
-      <h2 class="text-xl font-extrabold text-emerald-400">🛡️ ADIPOLI — OWNER CONSOLE</h2>
-      <button onclick="showScreen('chat')" class="px-3 py-1 rounded-xl bg-red-600/40 text-xs cursor-pointer">Close</button>
-    </div>
-    <div id="admin-content" class="space-y-3 text-xs max-h-96 overflow-y-auto"></div>
-  </div>
-
   <script>
     const socket = io();
     let myUser = { isGuest: true, gender: '♂️ Male', name: 'Guest', age: '-', place: '-', dp: 'https://cdn-icons-png.flaticon.com/512/149/149071.png', posts: [], reels: [], song: null, interests: [] };
     let currentViewingUser = null, isViewingSelf = false;
     let peerConnection, localStream, isVideoCall = false;
+    let typingTimeout;
 
     const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
     function showScreen(id) {
-      ['landing', 'profile', 'chat', 'admin'].forEach(s => document.getElementById('screen-' + s).classList.add('hidden'));
+      ['landing', 'profile', 'chat'].forEach(s => document.getElementById('screen-' + s).classList.add('hidden'));
       document.getElementById('screen-' + id).classList.remove('hidden');
     }
 
     function handleLogin() {
+      const loginInput = document.getElementById('login-input').value.trim();
+      if (!loginInput) return alert('Please enter your Email or Phone Number!');
       if (!document.getElementById('terms-check').checked) return alert('Accept 18+ Terms first!');
       myUser.isGuest = false;
       showScreen('profile');
@@ -335,7 +333,6 @@
       document.getElementById('m-age').innerText = currentViewingUser.age;
       document.getElementById('m-place').innerText = currentViewingUser.place;
 
-      // Posts Thumbnail Grid
       const pGrid = document.getElementById('tab-posts-content');
       if (currentViewingUser.posts && currentViewingUser.posts.length > 0) {
         pGrid.innerHTML = currentViewingUser.posts.map((p, idx) => `
@@ -345,7 +342,6 @@
         pGrid.innerHTML = '<span class="text-[10px] text-gray-400 col-span-3 text-center py-6">No posts yet</span>';
       }
 
-      // Reels Thumbnail Grid
       const rDiv = document.getElementById('tab-reels-content');
       if (currentViewingUser.reels && currentViewingUser.reels.length > 0) {
         rDiv.innerHTML = currentViewingUser.reels.map((reel, idx) => `
@@ -441,12 +437,24 @@
       if (currentViewingUser && currentViewingUser.id === updatedUser.id) {
         currentViewingUser = updatedUser;
         renderProfileModal();
-        // If media viewer is open, refresh it as well
-        const viewerModal = document.getElementById('media-viewer-modal');
-        if (!viewerModal.classList.contains('hidden')) {
-          // Keep current open media updated
-        }
       }
+    });
+
+    // --- Typing Indicator ---
+    function handleTyping() {
+      socket.emit('typing');
+      clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(() => { socket.emit('stop_typing'); }, 1000);
+    }
+
+    socket.on('display_typing', () => {
+      const ind = document.getElementById('typing-indicator');
+      if (ind) ind.classList.remove('hidden');
+    });
+
+    socket.on('hide_typing', () => {
+      const ind = document.getElementById('typing-indicator');
+      if (ind) ind.classList.add('hidden');
     });
 
     // --- WebRTC Call Functions ---
@@ -580,12 +588,12 @@
 
     socket.on('online_count', n => document.querySelectorAll('.online-num').forEach(el => el.innerText = n));
     socket.on('waiting', () => {
-      document.getElementById('chat-header').innerHTML = '<div class="w-10 h-10 rounded-full bg-emerald-900 border border-emerald-400 flex items-center justify-center animate-spin">⏳</div><div><h3 class="font-bold text-sm">Searching for a Stranger...</h3><p class="text-xs text-emerald-300/70">Open a 2nd browser tab to connect!</p></div>';
+      document.getElementById('chat-subtext').innerText = 'Searching for a Stranger...';
     });
 
     socket.on('matched', ({ peerGender, peerGuest, commonTags }) => {
       const tagsText = commonTags && commonTags.length ? 'Matched on #' + commonTags.join(' #') : 'Random Match';
-      document.getElementById('chat-header').innerHTML = '<div class="w-10 h-10 rounded-full bg-emerald-900 border border-emerald-400 flex items-center justify-center text-lg">🎭</div><div><div class="flex items-center gap-2"><h3 class="font-bold text-sm">Stranger</h3><span class="text-[11px] bg-emerald-600/40 border border-emerald-400 px-2 py-0.5 rounded-full">' + peerGender + '</span></div><p class="text-xs text-emerald-300/80">' + tagsText + '</p></div>';
+      document.getElementById('chat-subtext').innerText = tagsText;
       if (!myUser.isGuest && !peerGuest) document.getElementById('add-friend-btn').classList.remove('hidden');
       addSysMsg('🎉 Connected with a Stranger! Say Hi.');
     });
@@ -600,7 +608,7 @@
     });
 
     socket.on('sys_msg', addSysMsg);
-    socket.on('peer_skipped', () => addSysMsg('❌ Stranger disconnected. Click "Next / Skip".'));
+    socket.on('peer_skipped', () => addSysMsg('❌ Stranger disconnected. Click "New / Skip".'));
 
     function addSysMsg(txt) {
       const box = document.getElementById('chat-box');
@@ -620,7 +628,7 @@
       document.getElementById('media-label').classList.add('text-emerald-300', 'cursor-pointer');
 
       const hdr = document.getElementById('chat-header');
-      hdr.innerHTML = '<img src="' + peer.dp + '" class="w-10 h-10 rounded-full border border-emerald-400 object-cover cursor-pointer"><div><h3 class="font-bold text-sm text-emerald-300 cursor-pointer">' + peer.name + ' <span class="text-[10px] text-white/70">(Tap for Profile)</span></h3><p class="text-xs text-emerald-400">● Friends Unlocked</p></div>';
+      hdr.innerHTML = '<img src="' + peer.dp + '" class="w-10 h-10 rounded-full border border-emerald-400 object-cover cursor-pointer"><div><h3 class="font-bold text-sm text-emerald-300 cursor-pointer">' + peer.name + ' <span class="text-[10px] text-white/70">(Tap for Profile)</span></h3><p class="text-xs text-emerald-400">● Friends Unlocked</p><span id="typing-indicator" class="text-[10px] text-emerald-400 italic hidden">Stranger is typing...</span></div>';
       hdr.onclick = () => { isViewingSelf = false; currentViewingUser = peer; document.getElementById('self-upload-section').classList.add('hidden'); renderProfileModal(); document.getElementById('profile-modal').classList.remove('hidden'); };
 
       const flist = document.getElementById('friends-list');
