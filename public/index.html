@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ADIPOLI - Meet the Frnds</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap');
+    body { font-family: 'Outfit', sans-serif; background: radial-gradient(circle at top left, #064e3b, #022c22, #000000); min-height: 100vh; color: #ecfdf5; user-select: none; }
+    .glass { background: rgba(6, 78, 59, 0.28); backdrop-filter: blur(16px); border: 1px solid rgba(52, 211, 153, 0.25); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5); }
+    .glass-dark { background: rgba(2, 44, 34, 0.7); backdrop-filter: blur(20px); border: 1px solid rgba(16, 185, 129, 0.2); }
+    .neon-btn { background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 0 20px rgba(16, 185, 129, 0.4); transition: 0.2s; }
+    .neon-btn:hover { transform: translateY(-1px); box-shadow: 0 0 25px rgba(52, 211, 153, 0.7); }
+    .grid-thumbnail { aspect-ratio: 1 / 1; object-fit: cover; cursor: pointer; transition: 0.2s; border-radius: 0.5rem; border: 1px solid rgba(52, 211, 153, 0.3); }
+    .grid-thumbnail:hover { transform: scale(1.03); opacity: 0.9; }
+  </style>
+</head>
+<body class="flex items-center justify-center p-2 md:p-6">
+
+  <!-- SCREEN 1: LANDING -->
+  <div id="screen-landing" class="w-full max-w-md glass rounded-3xl p-8 text-center">
+    <div class="inline-block px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400 text-xs text-emerald-300 mb-3">
+      ● Live Online: <span class="online-num font-bold">1</span>
+    </div>
+    <h1 id="logo-main" class="text-5xl font-extrabold tracking-wider text-emerald-400 cursor-pointer">ADIPOLI</h1>
+    <p class="text-emerald-200/80 text-xs tracking-widest uppercase mt-1 mb-6">Meet the Frnds</p>
+
+    <div class="space-y-3 text-left">
+      <input id="login-input" type="text" placeholder="Enter Email or Phone Number" class="w-full px-4 py-3 rounded-xl glass-dark text-white text-sm focus:outline-none">
+      <label class="flex items-center gap-2 text-xs text-emerald-300/80 cursor-pointer">
+        <input id="terms-check" type="checkbox" checked class="accent-emerald-500">
+        I am 18+ & agree to Terms (Reported chats reviewed for safety).
+      </label>
+      <button onclick="handleLogin()" class="w-full py-3 rounded-xl neon-btn font-bold text-base cursor-pointer">Login / Sign Up</button>
+      <div class="text-center text-xs text-emerald-500 py-1">— OR —</div>
+      <button onclick="handleGuest()" class="w-full py-3 rounded-xl glass hover:bg-emerald-900/40 font-semibold text-emerald-300 text-sm cursor-pointer">
+        <i class="fa-solid fa-user-secret mr-1"></i> Continue as Guest (Anonymous)
+      </button>
+    </div>
+  </div>
+
+  <!-- SCREEN 2: PROFILE SETUP -->
+  <div id="screen-profile" class="hidden w-full max-w-md glass rounded-3xl p-8">
+    <h2 class="text-2xl font-bold text-emerald-400">Setup Your Profile</h2>
+    <p class="text-xs text-emerald-200/70 mb-4">Keep it simple. You can add posts & reels anytime later!</p>
+
+    <div class="flex flex-col items-center mb-4">
+      <label class="w-20 h-20 rounded-full glass-dark border-2 border-emerald-400 flex items-center justify-center cursor-pointer overflow-hidden">
+        <img id="dp-preview" src="" class="hidden w-full h-full object-cover">
+        <i id="dp-icon" class="fa-solid fa-camera text-xl text-emerald-400"></i>
+        <input id="dp-file" type="file" accept="image/*" onchange="loadDP(event)" class="hidden">
+      </label>
+      <span class="text-[11px] text-emerald-300 mt-1">Tap to Upload DP</span>
+    </div>
+
+    <div class="space-y-3">
+      <div>
+        <label class="text-xs text-emerald-300 block mb-1">Select Gender *</label>
+        <div class="grid grid-cols-3 gap-2 text-xs">
+          <button type="button" onclick="setGender('♂️ Male', this)" class="gender-btn py-2 rounded-xl glass border-emerald-400 bg-emerald-600/40 font-bold">♂️ Male</button>
+          <button type="button" onclick="setGender('♀️ Female', this)" class="gender-btn py-2 rounded-xl glass">♀️ Female</button>
+          <button type="button" onclick="setGender('⚧️ Trans', this)" class="gender-btn py-2 rounded-xl glass">⚧️ Trans</button>
+        </div>
+      </div>
+      <input id="p-name" type="text" placeholder="Your Full Name" class="w-full px-4 py-2.5 rounded-xl glass-dark text-sm text-white focus:outline-none">
+      <div class="grid grid-cols-2 gap-2">
+        <input id="p-age" type="number" placeholder="Age (e.g. 22)" class="w-full px-4 py-2.5 rounded-xl glass-dark text-sm text-white focus:outline-none">
+        <input id="p-place" type="text" placeholder="Place (e.g. Kochi)" class="w-full px-4 py-2.5 rounded-xl glass-dark text-sm text-white focus:outline-none">
+      </div>
+      <button onclick="saveProfile()" class="w-full py-3 rounded-xl neon-btn font-bold text-base mt-2 cursor-pointer">Save & Enter Chat 🚀</button>
+    </div>
+  </div>
+
+  <!-- SCREEN 3: MAIN CHAT -->
+  <div id="screen-chat" class="hidden w-full max-w-5xl h-[88vh] glass rounded-3xl overflow-hidden flex flex-col md:flex-row">
+    <div class="w-full md:w-72 glass-dark p-4 flex flex-col border-r border-emerald-500/20">
+      <div class="flex items-center justify-between mb-3">
+        <h2 id="logo-chat" class="text-xl font-extrabold text-emerald-400 cursor-pointer">ADIPOLI</h2>
+        <span class="text-xs bg-emerald-500/20 border border-emerald-400 px-2 py-0.5 rounded-full text-emerald-300">Online: <span class="online-num">1</span></span>
+      </div>
+
+      <button onclick="openMyProfile()" class="mb-3 w-full py-2.5 rounded-xl neon-btn text-xs font-bold cursor-pointer">
+        <i class="fa-solid fa-user mr-1"></i> View My Profile 📸
+      </button>
+
+      <label class="text-xs text-emerald-300/80">Interests (comma separated)</label>
+      <input id="interests-input" type="text" placeholder="kerala, movies, music" class="w-full px-3 py-2 mt-1 mb-4 rounded-xl glass text-xs text-white focus:outline-none">
+      <h3 class="text-xs uppercase tracking-wider text-emerald-400 font-bold mb-2">My Frnds (Tap for Profile)</h3>
+      <div id="friends-list" class="flex-1 overflow-y-auto space-y-2 text-xs text-emerald-300/60">No friends added yet.</div>
+    </div>
+
+    <div class="flex-1 flex flex-col justify-between relative">
+      <div class="p-3.5 glass-dark flex items-center justify-between border-b border-emerald-500/20">
+        <div id="chat-header" class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-emerald-900 border border-emerald-400 flex items-center justify-center">🔍</div>
+          <div><h3 class="font-bold text-sm">Not Connected</h3><p class="text-xs text-emerald-300/70">Click "Next / Skip" to start</p></div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="audio-call-btn" onclick="startAudioCall()" class="hidden px-2.5 py-1.5 rounded-xl bg-emerald-600/40 border border-emerald-400 text-emerald-300 text-xs cursor-pointer" title="Audio Call"><i class="fa-solid fa-phone"></i></button>
+          <button id="video-call-btn" onclick="startVideoCall()" class="hidden px-2.5 py-1.5 rounded-xl bg-emerald-600/40 border border-emerald-400 text-emerald-300 text-xs cursor-pointer" title="Video Call"><i class="fa-solid fa-video"></i></button>
+          <button id="add-friend-btn" onclick="sendFriendReq()" class="hidden px-3 py-1.5 rounded-xl neon-btn text-xs font-bold cursor-pointer"><i class="fa-solid fa-user-plus mr-1"></i> Add Frnd</button>
+          <button onclick="reportUser()" class="px-2.5 py-1.5 rounded-xl bg-red-500/20 border border-red-400/40 text-red-300 text-xs cursor-pointer"><i class="fa-solid fa-flag"></i> Report</button>
+        </div>
+      </div>
+
+      <div id="chat-box" class="flex-1 p-4 overflow-y-auto space-y-2.5 text-sm"></div>
+
+      <!-- FULL EMOJI & GIF PICKER -->
+      <div id="emoji-picker" class="hidden absolute bottom-16 left-12 glass-dark p-3 rounded-2xl w-72 max-h-60 overflow-y-auto z-20 shadow-2xl space-y-3">
+        <div class="flex justify-between items-center border-b border-emerald-500/30 pb-1 text-xs font-bold text-emerald-400">
+          <span>Choose Emoji / GIF</span>
+          <button onclick="toggleEmojiPicker()" class="text-gray-400 hover:text-white">✕</button>
+        </div>
+        <div class="grid grid-cols-7 gap-1 text-base text-center">
+          <span onclick="insertEmoji('😀')" class="cursor-pointer hover:bg-emerald-800/40 rounded p-1">😀</span>
+          <span onclick="insertEmoji('😂')" class="cursor-pointer hover:bg-emerald-800/40 rounded p-1">😂</span>
+          <span onclick="insertEmoji('😍')" class="cursor-pointer hover:bg-emerald-800/40 rounded p-1">😍</span>
+          <span onclick="insertEmoji('😎')" class="cursor-pointer hover:bg-emerald-800/40 rounded p-1">😎</span>
+          <span onclick="insertEmoji('😢')" class="cursor-pointer hover:bg-emerald-800/40 rounded p-1">😢</span>
+          <span onclick="insertEmoji('🔥')" class="cursor-pointer hover:bg-emerald-800/40 rounded p-1">🔥</span>
+          <span onclick="insertEmoji('❤️')" class="cursor-pointer hover:bg-emerald-800/40 rounded p-1">❤️</span>
+          <span onclick="insertEmoji('👍')" class="cursor-pointer hover:bg-emerald-800/40 rounded p-1">👍</span>
+          <span onclick="insertEmoji('✨')" class="cursor-pointer hover:bg-emerald-800/40 rounded p-1">✨</span>
+          <span onclick="insertEmoji('🎉')" class="cursor-pointer hover:bg-emerald-800/40 rounded p-1">🎉</span>
+          <span onclick="insertEmoji('🚀')" class="cursor-pointer hover:bg-emerald-800/40 rounded p-1">🚀</span>
+          <span onclick="insertEmoji('💯')" class="cursor-pointer hover:bg-emerald-800/40 rounded p-1">💯</span>
+          <span onclick="insertEmoji('👏')" class="cursor-pointer hover:bg-emerald-800/40 rounded p-1">👏</span>
+          <span onclick="insertEmoji('🙏')" class="cursor-pointer hover:bg-emerald-800/40 rounded p-1">🙏</span>
+        </div>
+        <div class="border-t border-emerald-500/30 pt-2">
+          <p class="text-[10px] text-emerald-300 font-bold mb-1">Send GIF:</p>
+          <div class="grid grid-cols-2 gap-1.5">
+            <img src="https://media.giphy.com/media/3oKIPnAiaMCws8nOsE/giphy.gif" onclick="sendQuickGif('https://media.giphy.com/media/3oKIPnAiaMCws8nOsE/giphy.gif')" class="h-16 w-full object-cover rounded cursor-pointer hover:opacity-80">
+            <img src="https://media.giphy.com/media/l0HlOvJ7yaacpuISk/giphy.gif" onclick="sendQuickGif('https://media.giphy.com/media/l0HlOvJ7yaacpuISk/giphy.gif')" class="h-16 w-full object-cover rounded cursor-pointer hover:opacity-80">
+          </div>
+        </div>
+      </div>
+
+      <div class="p-3 glass-dark flex items-center gap-2 relative">
+        <button onclick="findMatch()" class="px-4 py-2.5 rounded-xl bg-emerald-950 border border-emerald-400 font-bold text-xs text-emerald-300 hover:bg-emerald-900 cursor-pointer">Next / Skip ⏭️</button>
+        <button onclick="toggleEmojiPicker()" class="p-2.5 rounded-xl glass text-emerald-300 text-base cursor-pointer" title="Emojis & GIFs">😊</button>
+        <label id="media-label" class="p-2.5 rounded-xl glass text-emerald-500/40 cursor-not-allowed">
+          <i class="fa-solid fa-image"></i>
+          <input id="media-input" type="file" accept="image/*" disabled onchange="sendImage(event)" class="hidden">
+        </label>
+        <input id="msg-input" type="text" onkeydown="if(event.key==='Enter') sendMsg()" placeholder="Type a message..." class="flex-1 px-4 py-2.5 rounded-xl glass text-sm text-white focus:outline-none">
+        <button onclick="sendMsg()" class="px-5 py-2.5 rounded-xl neon-btn font-bold text-sm cursor-pointer"><i class="fa-solid fa-paper-plane"></i></button>
+      </div>
+
+      <!-- FULLSCREEN MEDIA VIEWER MODAL (Full Resolution, Scroll, Likes & Comments) -->
+      <div id="media-viewer-modal" class="hidden absolute inset-0 bg-black/95 backdrop-blur-lg flex flex-col items-center justify-center p-4 z-50 overflow-y-auto">
+        <button onclick="document.getElementById('media-viewer-modal').classList.add('hidden')" class="absolute top-4 right-6 text-emerald-300 text-2xl cursor-pointer">✕</button>
+        <div id="media-viewer-content" class="w-full max-w-md glass p-5 rounded-3xl space-y-3 my-auto shadow-2xl border border-emerald-400"></div>
+      </div>
+
+      <!-- CALL UI MODAL -->
+      <div id="call-modal" class="hidden absolute inset-0 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-4 z-50">
+        <h3 id="call-status" class="text-emerald-400 font-bold text-lg mb-4">Calling...</h3>
+        <div class="flex gap-4 mb-6">
+          <video id="local-video" autoplay muted playsinline class="w-48 h-36 rounded-xl border border-emerald-400 object-cover bg-black hidden"></video>
+          <video id="remote-video" autoplay playsinline class="w-48 h-36 rounded-xl border border-emerald-400 object-cover bg-black hidden"></video>
+          <audio id="remote-audio" autoplay></audio>
+        </div>
+        <button onclick="endCall()" class="px-6 py-2.5 rounded-xl bg-red-600 font-bold text-white text-sm cursor-pointer"><i class="fa-solid fa-phone-slash mr-1"></i> End Call</button>
+      </div>
+
+      <!-- UNIVERSAL PROFILE MODAL WITH GRID THUMBNAILS -->
+      <div id="profile-modal" class="hidden absolute inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-2 md:p-6 overflow-y-auto">
+        <div class="glass p-6 rounded-3xl max-w-md w-full text-center relative border border-emerald-400 max-h-[90vh] overflow-y-auto">
+          <button onclick="document.getElementById('profile-modal').classList.add('hidden')" class="absolute top-3 right-4 text-emerald-300 text-lg cursor-pointer">✕</button>
+          <img id="m-dp" src="" class="w-20 h-20 rounded-full mx-auto border-2 border-emerald-400 object-cover mb-2">
+          <h3 id="m-name" class="text-lg font-bold text-emerald-300"></h3>
+          <span id="m-gender" class="text-xs bg-emerald-700/50 px-2 py-0.5 rounded-full"></span>
+          <div class="mt-3 text-xs glass-dark p-2.5 rounded-xl text-left flex justify-around">
+            <div><strong>Age:</strong> <span id="m-age"></span></div>
+            <div><strong>Place:</strong> <span id="m-place"></span></div>
+          </div>
+          <div id="song-section" class="mt-3 hidden glass-dark p-2 rounded-xl text-xs flex items-center justify-between">
+            <span>🎵 Profile Song</span>
+            <audio id="m-song" controls class="h-8 w-48"></audio>
+          </div>
+
+          <div id="self-upload-section" class="hidden my-3 p-3 glass-dark rounded-xl flex items-center justify-center gap-3">
+            <label class="cursor-pointer bg-emerald-600/40 hover:bg-emerald-600/70 border border-emerald-400 px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-200 flex items-center gap-1.5">
+              <i class="fa-solid fa-plus text-sm"></i> Add Photo Post
+              <input type="file" accept="image/*" onchange="uploadMyPost(event)" class="hidden">
+            </label>
+            <label class="cursor-pointer bg-emerald-600/40 hover:bg-emerald-600/70 border border-emerald-400 px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-200 flex items-center gap-1.5">
+              <i class="fa-solid fa-plus text-sm"></i> Add Reel
+              <input type="file" accept="video/*" onchange="uploadMyReel(event)" class="hidden">
+            </label>
+          </div>
+
+          <div class="flex border-b border-emerald-500/30 mt-4 text-xs font-bold">
+            <button onclick="switchTab('posts')" id="tab-posts-btn" class="flex-1 py-2 text-emerald-400 border-b-2 border-emerald-400 cursor-pointer">📸 Posts</button>
+            <button onclick="switchTab('reels')" id="tab-reels-btn" class="flex-1 py-2 text-emerald-300/60 cursor-pointer">🎥 Reels</button>
+          </div>
+          <div id="tab-posts-content" class="mt-3 grid grid-cols-3 gap-2 min-h-[100px]"></div>
+          <div id="tab-reels-content" class="hidden mt-3 grid grid-cols-3 gap-2 min-h-[100px]"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- SCREEN 4: OWNER CONSOLE -->
+  <div id="screen-admin" class="hidden w-full max-w-4xl glass rounded-3xl p-6 border-2 border-emerald-400">
+    <div class="flex justify-between items-center border-b border-emerald-500/30 pb-3 mb-4">
+      <h2 class="text-xl font-extrabold text-emerald-400">🛡️ ADIPOLI — OWNER CONSOLE</h2>
+      <button onclick="showScreen('chat')" class="px-3 py-1 rounded-xl bg-red-600/40 text-xs cursor-pointer">Close</button>
+    </div>
+    <div id="admin-content" class="space-y-3 text-xs max-h-96 overflow-y-auto"></div>
+  </div>
+
+  <script>
+    const socket = io();
+    let myUser = { isGuest: true, gender: '♂️ Male', name: 'Guest', age: '-', place: '-', dp: 'https://cdn-icons-png.flaticon.com/512/149/149071.png', posts: [], reels: [], song: null, interests: [] };
+    let currentViewingUser = null, isViewingSelf = false;
+    let peerConnection, localStream, isVideoCall = false;
+
+    const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+    function showScreen(id) {
+      ['landing', 'profile', 'chat', 'admin'].forEach(s => document.getElementById('screen-' + s).classList.add('hidden'));
+      document.getElementById('screen-' + id).classList.remove('hidden');
+    }
+
+    function handleLogin() {
+      if (!document.getElementById('terms-check').checked) return alert('Accept 18+ Terms first!');
+      myUser.isGuest = false;
+      showScreen('profile');
+    }
+
+    function handleGuest() {
+      if (!document.getElementById('terms-check').checked) return alert('Accept 18+ Terms first!');
+      myUser.isGuest = true;
+      myUser.gender = '👤 Guest';
+      showScreen('chat');
+      findMatch();
+    }
+
+    function setGender(g, btn) {
+      myUser.gender = g;
+      document.querySelectorAll('.gender-btn').forEach(b => b.classList.remove('border-emerald-400', 'bg-emerald-600/40', 'font-bold'));
+      btn.classList.add('border-emerald-400', 'bg-emerald-600/40', 'font-bold');
+    }
+
+    function loadDP(e) {
+      const f = e.target.files[0];
+      if (f) { const r = new FileReader(); r.onload = () => { myUser.dp = r.result; document.getElementById('dp-preview').src = r.result; document.getElementById('dp-preview').classList.remove('hidden'); document.getElementById('dp-icon').classList.add('hidden'); }; r.readAsDataURL(f); }
+    }
+
+    function saveProfile() {
+      myUser.name = document.getElementById('p-name').value || 'User';
+      myUser.age = document.getElementById('p-age').value || '-';
+      myUser.place = document.getElementById('p-place').value || '-';
+      showScreen('chat');
+      findMatch();
+    }
+
+    function openMyProfile() {
+      if (myUser.isGuest) return alert('Guests do not have profiles. Please login!');
+      isViewingSelf = true;
+      currentViewingUser = myUser;
+      document.getElementById('self-upload-section').classList.remove('hidden');
+      renderProfileModal();
+      document.getElementById('profile-modal').classList.remove('hidden');
+    }
+
+    function uploadMyPost(e) {
+      const f = e.target.files[0];
+      if (!f) return;
+      const r = new FileReader();
+      r.onload = () => {
+        myUser.posts.push({ url: r.result, likes: 0, comments: [] });
+        socket.emit('update_profile', myUser);
+        renderProfileModal();
+        alert('Post uploaded successfully! 📸');
+      };
+      r.readAsDataURL(f);
+    }
+
+    function uploadMyReel(e) {
+      const f = e.target.files[0];
+      if (!f) return;
+      const r = new FileReader();
+      r.onload = () => {
+        myUser.reels.push({ url: r.result, likes: 0, comments: [] });
+        socket.emit('update_profile', myUser);
+        renderProfileModal();
+        alert('Reel uploaded successfully! 🎥');
+      };
+      r.readAsDataURL(f);
+    }
+
+    function toggleEmojiPicker() {
+      const picker = document.getElementById('emoji-picker');
+      picker.classList.toggle('hidden');
+    }
+
+    function insertEmoji(emo) {
+      const input = document.getElementById('msg-input');
+      input.value += emo;
+      document.getElementById('emoji-picker').classList.add('hidden');
+      input.focus();
+    }
+
+    function sendQuickGif(gifUrl) {
+      socket.emit('send_message', { text: '', media: gifUrl });
+      document.getElementById('emoji-picker').classList.add('hidden');
+    }
+
+    function switchTab(tab) {
+      if (tab === 'posts') {
+        document.getElementById('tab-posts-btn').className = 'flex-1 py-2 text-emerald-400 border-b-2 border-emerald-400 cursor-pointer';
+        document.getElementById('tab-reels-btn').className = 'flex-1 py-2 text-emerald-300/60 cursor-pointer';
+        document.getElementById('tab-posts-content').classList.remove('hidden');
+        document.getElementById('tab-reels-content').classList.add('hidden');
+      } else {
+        document.getElementById('tab-reels-btn').className = 'flex-1 py-2 text-emerald-400 border-b-2 border-emerald-400 cursor-pointer';
+        document.getElementById('tab-posts-btn').className = 'flex-1 py-2 text-emerald-300/60 cursor-pointer';
+        document.getElementById('tab-reels-content').classList.remove('hidden');
+        document.getElementById('tab-posts-content').classList.add('hidden');
+      }
+    }
+
+    function renderProfileModal() {
+      if (!currentViewingUser) return;
+      document.getElementById('m-dp').src = currentViewingUser.dp;
+      document.getElementById('m-name').innerText = currentViewingUser.name;
+      document.getElementById('m-gender').innerText = currentViewingUser.gender;
+      document.getElementById('m-age').innerText = currentViewingUser.age;
+      document.getElementById('m-place').innerText = currentViewingUser.place;
+
+      // Posts Thumbnail Grid
+      const pGrid = document.getElementById('tab-posts-content');
+      if (currentViewingUser.posts && currentViewingUser.posts.length > 0) {
+        pGrid.innerHTML = currentViewingUser.posts.map((p, idx) => `
+          <img src="${p.url}" onclick="openNormalMedia('post', ${idx})" class="grid-thumbnail w-full">
+        `).join('');
+      } else {
+        pGrid.innerHTML = '<span class="text-[10px] text-gray-400 col-span-3 text-center py-6">No posts yet</span>';
+      }
+
+      // Reels Thumbnail Grid
+      const rDiv = document.getElementById('tab-reels-content');
+      if (currentViewingUser.reels && currentViewingUser.reels.length > 0) {
+        rDiv.innerHTML = currentViewingUser.reels.map((reel, idx) => `
+          <video src="${reel.url}" onclick="openNormalMedia('reel', ${idx})" class="grid-thumbnail w-full bg-black"></video>
+        `).join('');
+      } else {
+        rDiv.innerHTML = '<span class="text-[10px] text-gray-400 col-span-3 text-center py-6">No reels uploaded</span>';
+      }
+
+      const songSec = document.getElementById('song-section');
+      const songAud = document.getElementById('m-song');
+      if (currentViewingUser.song) {
+        songAud.src = currentViewingUser.song;
+        songSec.classList.remove('hidden');
+      } else {
+        songSec.classList.add('hidden');
+      }
+    }
+
+    function openNormalMedia(type, idx) {
+      const item = type === 'post' ? currentViewingUser.posts[idx] : currentViewingUser.reels[idx];
+      const contentDiv = document.getElementById('media-viewer-content');
+      
+      const mediaHtml = type === 'post' 
+        ? `<img src="${item.url}" class="w-full max-h-[60vh] object-contain rounded-xl border border-emerald-500/30 bg-black/50">` 
+        : `<video src="${item.url}" controls autoplay class="w-full max-h-[60vh] object-contain rounded-xl border border-emerald-500/30 bg-black"></video>`;
+
+      contentDiv.innerHTML = `
+        <div class="flex items-center gap-2 mb-2">
+          <img src="${currentViewingUser.dp}" class="w-8 h-8 rounded-full border border-emerald-400 object-cover">
+          <span class="font-bold text-xs text-emerald-300">${currentViewingUser.name}</span>
+        </div>
+        ${mediaHtml}
+        <div class="flex items-center justify-between text-xs pt-1">
+          <button onclick="likeMedia('${type}', ${idx})" class="text-pink-400 hover:text-pink-300 font-bold cursor-pointer"><i class="fa-solid fa-heart mr-1"></i> <span>${item.likes}</span> Likes</button>
+        </div>
+        <div class="space-y-1 max-h-40 overflow-y-auto text-[11px] bg-black/40 p-2 rounded-xl">
+          ${item.comments.map((c, cIdx) => `
+            <div class="flex justify-between items-start bg-black/30 p-1.5 rounded">
+              <div><strong class="text-emerald-300">${c.user}:</strong>${c.text}</div>
+              <button onclick="replyMediaComment('${type}', ${idx},${cIdx})" class="text-[9px] text-emerald-400 underline cursor-pointer ml-2">Reply</button>
+            </div>
+          `).join('')}
+        </div>
+        <div class="flex gap-1 pt-1">
+          <input id="modal-comment-input" type="text" placeholder="Add a comment..." class="flex-1 px-3 py-2 rounded-xl bg-black/50 text-xs text-white focus:outline-none">
+          <button onclick="addMediaComment('${type}', ${idx})" class="px-3 py-2 bg-emerald-600 rounded-xl text-xs font-bold cursor-pointer">Post</button>
+        </div>
+      `;
+      document.getElementById('media-viewer-modal').classList.remove('hidden');
+    }
+
+    function likeMedia(type, idx) {
+      if (isViewingSelf) {
+        if (type === 'post') myUser.posts[idx].likes++;
+        else myUser.reels[idx].likes++;
+        openNormalMedia(type, idx);
+      } else {
+        if (type === 'post') socket.emit('like_post', { peerId: currentViewingUser.id, postIdx: idx });
+        else socket.emit('like_reel', { peerId: currentViewingUser.id, reelIdx: idx });
+      }
+    }
+
+    function addMediaComment(type, idx) {
+      const txt = document.getElementById('modal-comment-input').value.trim();
+      if (!txt) return;
+      if (isViewingSelf) {
+        if (type === 'post') myUser.posts[idx].comments.push({ user: myUser.name, text: txt });
+        else myUser.reels[idx].comments.push({ user: myUser.name, text: txt });
+        openNormalMedia(type, idx);
+      } else {
+        if (type === 'post') socket.emit('comment_post', { peerId: currentViewingUser.id, postIdx: idx, text: txt, userName: myUser.name });
+        else socket.emit('comment_reel', { peerId: currentViewingUser.id, reelIdx: idx, text: txt, userName: myUser.name });
+      }
+    }
+
+    function replyMediaComment(type, itemIdx, cIdx) {
+      const replyText = prompt('Write your reply:');
+      if (!replyText) return;
+      const targetList = type === 'post' ? currentViewingUser.posts[itemIdx].comments : currentViewingUser.reels[itemIdx].comments;
+      const targetComment = targetList[cIdx];
+      const formattedReply = { user: myUser.name, text: '↪️ Reply to @' + targetComment.user + ': ' + replyText };
+      if (isViewingSelf) {
+        targetList.push(formattedReply);
+        openNormalMedia(type, itemIdx);
+      } else {
+        if (type === 'post') socket.emit('comment_post', { peerId: currentViewingUser.id, postIdx: itemIdx, text: formattedReply.text, userName: myUser.name });
+        else socket.emit('comment_reel', { peerId: currentViewingUser.id, reelIdx: itemIdx, text: formattedReply.text, userName: myUser.name });
+      }
+    }
+
+    socket.on('profile_updated_peer', updatedUser => {
+      if (currentViewingUser && currentViewingUser.id === updatedUser.id) {
+        currentViewingUser = updatedUser;
+        renderProfileModal();
+        // If media viewer is open, refresh it as well
+        const viewerModal = document.getElementById('media-viewer-modal');
+        if (!viewerModal.classList.contains('hidden')) {
+          // Keep current open media updated
+        }
+      }
+    });
+
+    // --- WebRTC Call Functions ---
+    async function startAudioCall() { isVideoCall = false; await initCall(false); }
+    async function startVideoCall() { isVideoCall = true; await initCall(true); }
+
+    async function initCall(video) {
+      document.getElementById('call-modal').classList.remove('hidden');
+      document.getElementById('call-status').innerText = 'Calling...';
+      if (video) {
+        document.getElementById('local-video').classList.remove('hidden');
+        document.getElementById('remote-video').classList.remove('hidden');
+      } else {
+        document.getElementById('local-video').classList.add('hidden');
+        document.getElementById('remote-video').classList.add('hidden');
+      }
+
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: video });
+        if (video) document.getElementById('local-video').srcObject = localStream;
+
+        createPeerConnection();
+        localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        socket.emit('call_offer', { offer, target: currentViewingUser.id, video: video });
+      } catch (err) {
+        alert('Media permission denied or not supported!');
+        endCall();
+      }
+    }
+
+    function createPeerConnection() {
+      peerConnection = new RTCPeerConnection(rtcConfig);
+      peerConnection.onicecandidate = event => {
+        if (event.candidate) socket.emit('ice_candidate', { candidate: event.candidate, target: currentViewingUser.id });
+      };
+      peerConnection.ontrack = event => {
+        if (isVideoCall) {
+          document.getElementById('remote-video').srcObject = event.streams[0];
+        } else {
+          document.getElementById('remote-audio').srcObject = event.streams[0];
+        }
+      };
+    }
+
+    socket.on('incoming_call', async ({ offer, callerId, video }) => {
+      isVideoCall = video;
+      currentViewingUser = { id: callerId };
+      document.getElementById('call-modal').classList.remove('hidden');
+      document.getElementById('call-status').innerText = 'Incoming Call...';
+      if (video) {
+        document.getElementById('local-video').classList.remove('hidden');
+        document.getElementById('remote-video').classList.remove('hidden');
+      }
+
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: video });
+        if (video) document.getElementById('local-video').srcObject = localStream;
+
+        createPeerConnection();
+        localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+        socket.emit('call_answer', { answer, target: callerId });
+        document.getElementById('call-status').innerText = 'Connected 📞';
+      } catch (err) {
+        endCall();
+      }
+    });
+
+    socket.on('call_answered', async ({ answer }) => {
+      await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+      document.getElementById('call-status').innerText = 'Connected 📞';
+    });
+
+    socket.on('ice_candidate', async ({ candidate }) => {
+      if (peerConnection) await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+    });
+
+    function endCall() {
+      if (localStream) localStream.getTracks().forEach(t => t.stop());
+      if (peerConnection) peerConnection.close();
+      peerConnection = null;
+      document.getElementById('call-modal').classList.add('hidden');
+      socket.emit('end_call', { target: currentViewingUser ? currentViewingUser.id : null });
+    }
+
+    socket.on('call_ended', () => {
+      if (localStream) localStream.getTracks().forEach(t => t.stop());
+      if (peerConnection) peerConnection.close();
+      peerConnection = null;
+      document.getElementById('call-modal').classList.add('hidden');
+    });
+
+    function findMatch() {
+      myUser.interests = document.getElementById('interests-input').value.split(',').map(t => t.trim()).filter(Boolean);
+      document.getElementById('chat-box').innerHTML = '';
+      document.getElementById('add-friend-btn').classList.add('hidden');
+      document.getElementById('audio-call-btn').classList.add('hidden');
+      document.getElementById('video-call-btn').classList.add('hidden');
+      document.getElementById('media-input').disabled = true;
+      document.getElementById('media-label').classList.add('text-emerald-500/40', 'cursor-not-allowed');
+      socket.emit('find_match', myUser);
+    }
+
+    function sendMsg() {
+      const inp = document.getElementById('msg-input');
+      if (!inp.value.trim()) return;
+      socket.emit('send_message', { text: inp.value.trim() });
+      inp.value = '';
+    }
+
+    function sendImage(e) {
+      const f = e.target.files[0];
+      if (f) { const r = new FileReader(); r.onload = () => socket.emit('send_message', { text: '', media: r.result }); r.readAsDataURL(f); }
+    }
+
+    function sendFriendReq() {
+      socket.emit('add_friend');
+      addSysMsg('⏳ Friend request sent! Waiting for Stranger to accept...');
+    }
+
+    function reportUser() {
+      socket.emit('report_user');
+      findMatch();
+    }
+
+    socket.on('online_count', n => document.querySelectorAll('.online-num').forEach(el => el.innerText = n));
+    socket.on('waiting', () => {
+      document.getElementById('chat-header').innerHTML = '<div class="w-10 h-10 rounded-full bg-emerald-900 border border-emerald-400 flex items-center justify-center animate-spin">⏳</div><div><h3 class="font-bold text-sm">Searching for a Stranger...</h3><p class="text-xs text-emerald-300/70">Open a 2nd browser tab to connect!</p></div>';
+    });
+
+    socket.on('matched', ({ peerGender, peerGuest, commonTags }) => {
+      const tagsText = commonTags && commonTags.length ? 'Matched on #' + commonTags.join(' #') : 'Random Match';
+      document.getElementById('chat-header').innerHTML = '<div class="w-10 h-10 rounded-full bg-emerald-900 border border-emerald-400 flex items-center justify-center text-lg">🎭</div><div><div class="flex items-center gap-2"><h3 class="font-bold text-sm">Stranger</h3><span class="text-[11px] bg-emerald-600/40 border border-emerald-400 px-2 py-0.5 rounded-full">' + peerGender + '</span></div><p class="text-xs text-emerald-300/80">' + tagsText + '</p></div>';
+      if (!myUser.isGuest && !peerGuest) document.getElementById('add-friend-btn').classList.remove('hidden');
+      addSysMsg('🎉 Connected with a Stranger! Say Hi.');
+    });
+
+    socket.on('receive_message', msg => {
+      const isMe = msg.senderId === socket.id;
+      const box = document.getElementById('chat-box');
+      const isGif = msg.media && msg.media.includes('giphy');
+      const mediaHtml = msg.media ? (isGif ? '<img src="' + msg.media + '" class="rounded-xl max-h-40 mb-1">' : '<img src="' + msg.media + '" class="rounded-xl max-h-48 mb-1">') : '';
+      box.innerHTML += '<div class="flex ' + (isMe ? 'justify-end' : 'justify-start') + '"><div class="' + (isMe ? 'neon-btn' : 'glass') + ' px-3.5 py-2 rounded-2xl max-w-xs">' + mediaHtml + (msg.text ? '<div>' + msg.text + '</div>' : '') + '<div class="text-[10px] opacity-70 text-right mt-0.5">' + msg.time + '</div></div></div>';
+      box.scrollTop = box.scrollHeight;
+    });
+
+    socket.on('sys_msg', addSysMsg);
+    socket.on('peer_skipped', () => addSysMsg('❌ Stranger disconnected. Click "Next / Skip".'));
+
+    function addSysMsg(txt) {
+      const box = document.getElementById('chat-box');
+      box.innerHTML += '<div class="text-center text-xs text-emerald-300/80 my-2">' + txt + '</div>';
+      box.scrollTop = box.scrollHeight;
+    }
+
+    socket.on('friend_revealed', peer => {
+      currentViewingUser = peer;
+      isViewingSelf = false;
+      document.getElementById('self-upload-section').classList.add('hidden');
+      document.getElementById('add-friend-btn').classList.add('hidden');
+      document.getElementById('audio-call-btn').classList.remove('hidden');
+      document.getElementById('video-call-btn').classList.remove('hidden');
+      document.getElementById('media-input').disabled = false;
+      document.getElementById('media-label').classList.remove('text-emerald-500/40', 'cursor-not-allowed');
+      document.getElementById('media-label').classList.add('text-emerald-300', 'cursor-pointer');
+
+      const hdr = document.getElementById('chat-header');
+      hdr.innerHTML = '<img src="' + peer.dp + '" class="w-10 h-10 rounded-full border border-emerald-400 object-cover cursor-pointer"><div><h3 class="font-bold text-sm text-emerald-300 cursor-pointer">' + peer.name + ' <span class="text-[10px] text-white/70">(Tap for Profile)</span></h3><p class="text-xs text-emerald-400">● Friends Unlocked</p></div>';
+      hdr.onclick = () => { isViewingSelf = false; currentViewingUser = peer; document.getElementById('self-upload-section').classList.add('hidden'); renderProfileModal(); document.getElementById('profile-modal').classList.remove('hidden'); };
+
+      const flist = document.getElementById('friends-list');
+      if (flist.innerText.includes('No friends')) flist.innerHTML = '';
+      const item = document.createElement('div');
+      item.className = 'p-2 rounded-xl glass hover:bg-emerald-800/40 cursor-pointer flex items-center gap-2 text-white';
+      item.innerHTML = '<img src="' + peer.dp + '" class="w-8 h-8 rounded-full object-cover border border-emerald-400"><div><p class="font-bold text-xs">' + peer.name + '</p><p class="text-[10px] text-emerald-300">Tap for Profile</p></div>';
+      item.onclick = () => { isViewingSelf = false; currentViewingUser = peer; document.getElementById('self-upload-section').classList.add('hidden'); renderProfileModal(); document.getElementById('profile-modal').classList.remove('hidden'); };
+      flist.appendChild(item);
+
+      addSysMsg('🎉 You are now Friends with ' + peer.name + '! You can now make Audio & Video calls.');
+    });
+  </script>
+</body>
+</html>
